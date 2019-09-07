@@ -20,7 +20,8 @@ provider:
     - Effect: "Allow"
       Action:
         - "s3:PutObject"
-      Resource: "arn:aws:s3:::gudongfeng.me/images/*"
+        - "s3:GetBucketLocation"
+      Resource: "arn:aws:s3:::gudongfeng.me/*"
 
 # The `functions` block defines what code to deploy
 functions:

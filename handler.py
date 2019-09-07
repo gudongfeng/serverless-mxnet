@@ -20,9 +20,7 @@ s3 = boto3.client('s3')
 score_threshold = 0.5
 
 def getS3Url(s3_bucket_name, key_name):
-  bucket_location = s3.get_bucket_location(Bucket=s3_bucket_name)
-  object_url = "https://s3-{0}.amazonaws.com/{1}/{2}".format(
-    bucket_location['LocationConstraint'],
+  object_url = "https://s3-us-west-2.amazonaws.com/{0}/{1}".format(
     s3_bucket_name,
     key_name)
   return object_url
