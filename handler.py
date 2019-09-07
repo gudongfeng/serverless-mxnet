@@ -1,58 +1,82 @@
 try:
-  import unzip_requirements
+    import unzip_requirements
 except ImportError:
-  pass
+    pass
 
 import wget
+import boto3
 
+from matplotlib import pyplot as plt
 from gluoncv.data.transforms.presets.ssd import load_test
 from gluoncv.model_zoo import get_model
+from gluoncv.utils.viz import plot_bbox
 
 # use mobilenet because it's small. lambda only has 512mb of space which isn't big enough
 # to download ssd or frcnn models and unzip them. hosting them on s3 unzipped is probably
 # a solution
-ssdnet =  get_model('ssd_512_mobilenet1.0_voc', pretrained=True, root='/tmp/models')
+ssdnet = get_model('ssd_512_mobilenet1.0_voc',
+                   pretrained=True, root='/tmp/models')
+s3 = boto3.client('s3')
 score_threshold = 0.5
 
+def getS3Url(s3_bucket_name, key_name):
+  bucket_location = s3.get_bucket_location(Bucket=s3_bucket_name)
+  object_url = "https://s3-{0}.amazonaws.com/{1}/{2}".format(
+    bucket_location['LocationConstraint'],
+    s3_bucket_name,
+    key_name)
+  return object_url
+
 def detect(event, context):
+    # get the url
+    url = event.get('url', None)
 
-  # get the url
-  url = event.get('url', None)
+    if not url:
+        response = {
+            "statusCode": 500,
+            "body": "Please specify a url"
+        }
+        return response
 
-  if not url:
-    response = {
-      "statusCode": 500,
-      "body": "Please specify a url"
+    # download the image
+    urlSplit = url.split('/')
+    fileName = urlSplit[-1]
+    filePath = wget.download(url, out="/tmp/{0}".format(fileName))
+
+    # classify the image
+    x, img = load_test(filePath, short=512)
+    classes, scores, bbox = ssdnet(x)
+
+    results = []
+
+    # for each result, we'll take the each
+    # them if their score is greater than a given threshold
+    for i in range(len(scores[0])):
+        if float(scores[0][i].asnumpy().tolist()[0]) > score_threshold:
+            results.append({
+                "class": ssdnet.classes[int(classes[0][i].asnumpy().tolist()[0])],
+                "score": float(scores[0][i].asnumpy().tolist()[0]),
+                "bbox": bbox[0][i].asnumpy().tolist()
+            })
+
+    # plot the box of the image and then store it in S3
+    plot_bbox(img, bbox[0], scores[0], classes[0], class_names=ssdnet.classes)
+
+    tmpOutPath = "/tmp/detect_{0}".format(fileName)
+    plt.savefig(tmpOutPath)
+
+    s3_key = "images/detect_{0}".format(fileName)
+    s3_bucket_name = "gudongfeng.me"
+    s3.upload_file(tmpOutPath, s3_bucket_name, s3_key)
+
+    body = {
+        "bounding_boxes": results,
+        "s3_url": getS3Url(s3_bucket_name, s3_key)
     }
+
+    response = {
+        "statusCode": 200,
+        "body": body
+    }
+
     return response
-
-  # download the image
-  filename = wget.download(url, out="/tmp/image.jpg")
-
-  # classify the image
-  x, _ = load_test(filename, short=512)
-  classes, scores, bbox = ssdnet(x)
-
-  results = []
-
-  # for each result, we'll take the each
-  # them if their score is greater than a given threshold
-  for i in range(len(scores[0])):
-      if float(scores[0][i].asnumpy().tolist()[0]) > score_threshold:
-        results.append({
-          "class": ssdnet.classes[int(classes[0][i].asnumpy().tolist()[0])],
-          "score": float(scores[0][i].asnumpy().tolist()[0]),
-          "bbox": bbox[0][i].asnumpy().tolist()
-        })
-    
-
-  body = {
-      "bounding_boxes": results
-  }
-
-  response = {
-      "statusCode": 200,
-      "body": body
-  }
-
-  return response

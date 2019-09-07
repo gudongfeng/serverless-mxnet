@@ -1,3 +1,5 @@
+org: gudongfeng
+app: object-detection
 # Welcome to serverless. Read the docs
 # https://serverless.com/framework/docs/
 
@@ -11,6 +13,14 @@ service: serverless-mxnet
 provider:
   name: aws
   runtime: python3.6
+  timeout: 30
+  region: us-east-1
+  # Provide permissions for this service to manipulate S3.
+  iamRoleStatements:
+    - Effect: "Allow"
+      Action:
+        - "s3:PutObject"
+      Resource: "arn:aws:s3:::gudongfeng.me/images/*"
 
 # The `functions` block defines what code to deploy
 functions:
@@ -25,6 +35,7 @@ functions:
 
 plugins:
   - serverless-python-requirements
+
 custom:
   pythonRequirements:
     dockerizePip: true
