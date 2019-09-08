@@ -3,6 +3,7 @@ try:
 except ImportError:
     pass
 
+import json
 import wget
 import boto3
 
@@ -19,23 +20,26 @@ ssdnet = get_model('ssd_512_mobilenet1.0_voc',
 s3 = boto3.client('s3')
 score_threshold = 0.5
 
+
 def getS3Url(s3_bucket_name, key_name):
-  object_url = "https://s3-us-west-2.amazonaws.com/{0}/{1}".format(
-    s3_bucket_name,
-    key_name)
-  return object_url
+    object_url = "https://s3-us-west-2.amazonaws.com/{0}/{1}".format(
+        s3_bucket_name,
+        key_name)
+    return object_url
+
 
 def detect(event, context):
     # get the url
-    url = event.get('url', None)
+    data = json.loads(event['body'])
 
-    if not url:
+    if 'url' not in data:
         response = {
             "statusCode": 500,
             "body": "Please specify a url"
         }
         return response
 
+    url = data['url']
     # download the image
     urlSplit = url.split('/')
     fileName = urlSplit[-1]
@@ -74,7 +78,12 @@ def detect(event, context):
 
     response = {
         "statusCode": 200,
-        "body": body
+        "body": json.dumps(body),
+        "headers": {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Credentials': True,
+            'Content-Type': 'application/json'
+        },
     }
 
     return response

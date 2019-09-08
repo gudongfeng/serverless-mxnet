@@ -31,7 +31,7 @@ functions:
     events:
       - http:
           path: detect
-          method: get
+          method: post 
           cors: true
 
 plugins:

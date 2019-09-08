@@ -13,5 +13,5 @@ serverless deploy
 
 ## Invoke
 
-```serverless invoke -f detect --data '{"url": "https://postcardsfromtomandliz.files.wordpress.com/2013/07/brussels-street-walkers.jpg"}'```
+```serverless invoke -f detect -p sample_data.json```
 
